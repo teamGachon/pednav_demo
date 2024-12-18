@@ -1,6 +1,7 @@
 package com.example.modeltest;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.hardware.Sensor;
@@ -9,8 +10,13 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.speech.tts.TextToSpeech;
 import android.telephony.SmsManager;
@@ -42,13 +48,17 @@ import com.naver.maps.map.overlay.Marker;
 import com.naver.maps.map.overlay.PathOverlay;
 import com.naver.maps.map.util.FusedLocationSource;
 
+import java.io.FileInputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.tensorflow.lite.Interpreter;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Locale;
 
@@ -85,13 +95,23 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     // 경고창 관련 변수
     private LinearLayout vehicleWarningLayout;
 
+    private TextView warningMessage;
+    private Vibrator vibrator;
+
     // 마커 객체
     private Marker startMarker = new Marker(); // 출발지 마커
     private Marker endMarker = new Marker();   // 목적지 마커
 
+    // TensorFlow Lite 모델
+    private Interpreter tflite;
+    private boolean isRecording = false;
+
     private static final String NAVER_CLIENT_ID = "dexbyijg2d";
     private static final String NAVER_CLIENT_SECRET = "oWbby1gXrrhtYftuyonY71axZ3K8NrgsbwdLVu2m";
+    private static final int SAMPLE_RATE = 48000;
+    private static final int AUDIO_BUFFER_SIZE = SAMPLE_RATE * 2;
     private OkHttpClient client = new OkHttpClient();
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -130,92 +150,166 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
 
         // 경고창 초기화
         vehicleWarningLayout = findViewById(R.id.vehicle_warning_layout);
+        warningMessage = findViewById(R.id.warning_message);
+        vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+
+        initTFLite();
+        startVehicleDetection();
 
         // 차량 감지 테스트 버튼 설정
         Button testVehicleDetectionButton = findViewById(R.id.test_vehicle_detection);
         testVehicleDetectionButton.setOnClickListener(view -> {
-            // 차량 탐지 여부 토글
-            isVehicleDetected = !isVehicleDetected;
+            isVehicleDetected = !isVehicleDetected; // 차량 탐지 여부 토글
 
             if (isVehicleDetected) {
-                startBlinkingOverlay(); // 깜빡이기 시작
-                showVehicleWarning(); // 경고창 표시
+                startRepeatingVibration(); // 진동 시작
+                startBlinkingOverlay();    // 깜빡이기 시작
+                showVehicleWarning();      // 경고창 표시
+
+                // 차량 감지 상태 메시지
                 Toast.makeText(MapFragmentActivity.this, "차량이 감지되었습니다.", Toast.LENGTH_SHORT).show();
+                Log.d("Vehicle Detection", "차량이 감지되었습니다.");
             } else {
-                stopBlinkingOverlay(); // 깜빡이기 중지
-                hideVehicleWarning(); // 경고창 숨김
-                Toast.makeText(MapFragmentActivity.this, "차량이 감지되지 않았습니다.", Toast.LENGTH_SHORT).show();
+                stopRepeatingVibration(); // 진동 중지
+                stopBlinkingOverlay();    // 깜빡이기 중지
+                hideVehicleWarning();     // 경고창 숨김
+
+                // 차량 감지 해제 메시지
+                Toast.makeText(MapFragmentActivity.this, "차량 감지가 해제되었습니다.", Toast.LENGTH_SHORT).show();
+                Log.d("Vehicle Detection", "차량 감지가 해제되었습니다.");
             }
         });
 
     }
 
-    @Override
-    public void onMapReady(@NonNull NaverMap naverMap) {
-        this.naverMap = naverMap;
-        naverMap.setLocationSource(locationSource);
+    private void startVehicleDetection() {
+        new Thread(() -> {
+            if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return;
+            }
+            AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
+                    SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT, AUDIO_BUFFER_SIZE);
 
-        // 권한 요청
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
-        } else {
-            enableMyLocation();
-        }
+            short[] audioData = new short[AUDIO_BUFFER_SIZE / 2];
+            recorder.startRecording();
+            isRecording = true;
 
-        // 센서 리스너 등록
-        sensorManager.registerListener(sensorEventListener, rotationSensor, SensorManager.SENSOR_DELAY_UI);
+            while (isRecording) {
+                int result = recorder.read(audioData, 0, audioData.length);
+                if (result > 0) {
+                    detectSound(audioData);
+                }
+            }
 
-        Marker marker = new Marker();
-        marker.setPosition(new LatLng(37.5670135, 126.9783740));
-        marker.setMap(naverMap);
+            recorder.stop();
+            recorder.release();
+        }).start();
     }
 
-    // 깜빡이기 기능을 시작하거나 중지하는 메서드
+    // TensorFlow Lite 모델 출력 및 차량 감지 메서드
+    private void detectSound(short[] audioData) {
+        float[][][] input = new float[1][96000][1];
+        int length = Math.min(audioData.length, 96000);
+
+        for (int i = 0; i < length; i++) {
+            input[0][i][0] = audioData[i]; // PCM 데이터를 정규화
+        }
+
+        float[][] output = new float[1][1];
+        tflite.run(input, output);
+
+        // 모델 출력 값과 차량 감지 여부 확인
+        float detectionValue = output[0][0];
+        boolean vehicleDetected = detectionValue < 0.5;
+
+        Log.d("TensorFlow Output", "소리 감지 결과: " + detectionValue);
+        runOnUiThread(() -> {
+            Toast.makeText(this, "소리 감지 값: " + detectionValue, Toast.LENGTH_SHORT).show();
+
+            if (vehicleDetected) {
+                if (!isVehicleDetected) {
+                    isVehicleDetected = true;
+                    Log.d("Vehicle Detection", "차량이 감지되었습니다.");
+                    Toast.makeText(this, "차량이 감지되었습니다!", Toast.LENGTH_SHORT).show();
+                    showVehicleWarning();
+                    startBlinkingOverlay();
+                    startRepeatingVibration();
+                }
+            } else {
+                if (isVehicleDetected) {
+                    isVehicleDetected = false;
+                    Log.d("Vehicle Detection", "차량 감지가 해제되었습니다.");
+                    Toast.makeText(this, "차량 감지가 해제되었습니다!", Toast.LENGTH_SHORT).show();
+                    hideVehicleWarning();
+                    stopBlinkingOverlay();
+                    stopRepeatingVibration();
+                }
+            }
+        });
+    }
+
+    // 반복 진동 시작
+    private void startRepeatingVibration() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            long[] pattern = {0, 500, 500}; // 0.5초 진동, 0.5초 쉬기 반복
+            vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0));
+        } else {
+            vibrator.vibrate(new long[]{0, 500, 500}, 0); // API 26 미만
+        }
+    }
+
+    // 반복 진동 중지
+    private void stopRepeatingVibration() {
+        vibrator.cancel();
+    }
+
+    // 화면 깜빡임 시작
     private void startBlinkingOverlay() {
-        if (isBlinking) return; // 이미 깜빡이는 중이면 실행하지 않음
+        if (isBlinking) return;
         isBlinking = true;
 
         blinkHandler.post(new Runnable() {
-            boolean visible = true; // 뷰 상태를 토글하기 위한 플래그
+            boolean visible = true;
 
             @Override
             public void run() {
-                if (!isVehicleDetected) { // 차량 감지가 해제되면 중지
-                    overlayView.setBackgroundColor(Color.TRANSPARENT);
-                    isBlinking = false;
+                if (!isVehicleDetected) {
+                    stopBlinkingOverlay();
                     return;
                 }
 
-                if (visible) {
-                    // 불투명한 빨간색 배경 (투명도 50%)
-                    overlayView.setBackgroundColor(Color.parseColor("#88FFB3B3"));
-                } else {
-                    // 완전 투명 상태
-                    overlayView.setBackgroundColor(Color.TRANSPARENT);
-                }
-
-                visible = !visible; // 상태를 토글
-                blinkHandler.postDelayed(this, 500); // 0.5초 후 다시 실행
+                overlayView.setBackgroundColor(visible ? Color.parseColor("#88FFB3B3") : Color.TRANSPARENT);
+                visible = !visible;
+                blinkHandler.postDelayed(this, 500);
             }
         });
     }
 
+    // 화면 깜빡임 중지
     private void stopBlinkingOverlay() {
         isBlinking = false;
-        blinkHandler.removeCallbacksAndMessages(null); // 핸들러 중지
-        overlayView.setBackgroundColor(Color.TRANSPARENT); // 배경 초기화
+        blinkHandler.removeCallbacksAndMessages(null);
+        overlayView.setBackgroundColor(Color.TRANSPARENT);
     }
 
     // 경고창 표시
     private void showVehicleWarning() {
         vehicleWarningLayout.setVisibility(View.VISIBLE);
-        overlayView.setBackgroundColor(Color.parseColor("#88FFB3B3")); // 반투명 배경
+        warningMessage.setText("차량이 감지되었습니다!");
     }
 
     // 경고창 숨김
     private void hideVehicleWarning() {
         vehicleWarningLayout.setVisibility(View.GONE);
-        overlayView.setBackgroundColor(Color.TRANSPARENT); // 투명 상태
+        overlayView.setBackgroundColor(Color.TRANSPARENT);
     }
 
     // 센서 이벤트 리스너
@@ -238,19 +332,40 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
         }
     };
 
-    private void checkVehicleDetection() {
-        if (isVehicleDetected) {
-            // 연한 빨간색으로 배경 변경 및 가시화
-            overlayView.setBackgroundColor(Color.parseColor("#FFB3B3")); // 연한 빨간색
-            overlayView.setVisibility(View.VISIBLE); // 가시화
-        } else {
-            // 투명 상태로 변경 및 숨김 처리
-            overlayView.setBackgroundColor(Color.TRANSPARENT);
-            overlayView.setVisibility(View.INVISIBLE); // 숨김 처리
+    private void initTFLite() {
+        try {
+            FileInputStream fis = new FileInputStream(getAssets().openFd("car_detection_raw_audio_model.tflite").getFileDescriptor());
+            FileChannel fileChannel = fis.getChannel();
+            long startOffset = getAssets().openFd("car_detection_raw_audio_model.tflite").getStartOffset();
+            long declaredLength = getAssets().openFd("car_detection_raw_audio_model.tflite").getDeclaredLength();
+            ByteBuffer modelBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+            tflite = new Interpreter(modelBuffer);
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "TensorFlow 모델 로드 실패", Toast.LENGTH_SHORT).show();
         }
     }
 
 
+    @Override
+    public void onMapReady(@NonNull NaverMap naverMap) {
+        this.naverMap = naverMap;
+        naverMap.setLocationSource(locationSource);
+
+        // 권한 요청
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+        } else {
+            enableMyLocation();
+        }
+
+        // 센서 리스너 등록
+        sensorManager.registerListener(sensorEventListener, rotationSensor, SensorManager.SENSOR_DELAY_UI);
+
+        Marker marker = new Marker();
+        marker.setPosition(new LatLng(37.5670135, 126.9783740));
+        marker.setMap(naverMap);
+    }
 
     private void enableMyLocation() {
         naverMap.setLocationTrackingMode(LocationTrackingMode.Face);
@@ -303,11 +418,6 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
         }
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        }
-
     private void findRoute() {
         String startAddress = startPoint.getText().toString();
         String endAddress = endPoint.getText().toString();
@@ -323,7 +433,6 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
             });
         });
     }
-
 
     private void getCoordinates(String address, boolean isStartPoint, OnGeocodeListener listener) {
         try {
@@ -389,7 +498,6 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     }
 
 
-
     private void requestDirection(LatLng start, LatLng end) {
         String url = "https://naveropenapi.apigw.ntruss.com/map-direction/v1/driving?"
                 + "start=" + start.longitude + "," + start.latitude
@@ -443,6 +551,13 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
         if (!latLngList.isEmpty()) {
             naverMap.moveCamera(CameraUpdate.scrollTo(latLngList.get(0)));
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        isRecording = false;
+        tflite.close();
     }
 
     interface OnGeocodeListener {

@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -50,10 +49,10 @@
             android:layout_marginBottom="160dp">
 
             <TextView
-                android:id="@+id/txtDetectionStatus"
+                android:id="@+id/resultTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Status: Listening..."
+                android:text="결과 표시"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:textColor="#000000"
@@ -61,12 +60,23 @@
                 android:layout_marginBottom="8dp" />
 
             <TextView
-                android:id="@+id/txtAdditionalInfo"
+                android:id="@+id/vehicleDetectedView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="No vehicles detected nearby."
+                android:text="차량 감지 여부: 미감지"
                 android:textSize="14sp"
                 android:textColor="#757575"
+                android:gravity="center"
+                android:layout_marginBottom="8dp" />
+
+            <!-- TensorFlow 모델 수치 값 -->
+            <TextView
+                android:id="@+id/scoreTextView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Detection Score: N/A"
+                android:textSize="14sp"
+                android:textColor="#00796B"
                 android:gravity="center" />
         </LinearLayout>
 

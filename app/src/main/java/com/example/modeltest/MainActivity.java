@@ -21,10 +21,6 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        // Navigate to Detection Test Activity
-        TextView btnVehicleDetection = findViewById(R.id.btnVehicleDetection);
-
-
         // Navigate to Navigation Test Activity
         TextView btnNavigation = findViewById(R.id.btnNavigation);
         btnNavigation.setOnClickListener(new View.OnClickListener(){
@@ -34,6 +30,17 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
             }
         });
+
+        // Navigate to Detection Test Activity
+        TextView btnVehicleDetection = findViewById(R.id.btnVehicleDetection);
+        btnVehicleDetection.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View v){
+                Intent intent = new Intent(MainActivity.this, ModelTestActivity.class);
+                startActivity(intent);
+            }
+        });
+
 
         // Navigate to Setting Test Activity
         TextView btnSettings = findViewById(R.id.btnSettings);
