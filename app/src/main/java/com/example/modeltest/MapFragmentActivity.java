@@ -153,8 +153,12 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
         warningMessage = findViewById(R.id.warning_message);
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
-        initTFLite();
-        startVehicleDetection();
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 200);
+        } else {
+            initTFLite();
+            startVehicleDetection();
+        }
 
         // 차량 감지 테스트 버튼 설정
         Button testVehicleDetectionButton = findViewById(R.id.test_vehicle_detection);
@@ -167,7 +171,7 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
                 showVehicleWarning();      // 경고창 표시
 
                 // 차량 감지 상태 메시지
-                Toast.makeText(MapFragmentActivity.this, "차량이 감지되었습니다.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MapFragmentActivity.this, "근처에 차량이 감지되었습니다. 주의하세요!", Toast.LENGTH_SHORT).show();
                 Log.d("Vehicle Detection", "차량이 감지되었습니다.");
             } else {
                 stopRepeatingVibration(); // 진동 중지
@@ -184,43 +188,47 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
 
     private void startVehicleDetection() {
         new Thread(() -> {
+            // 권한 확인
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
+                Log.e("AudioRecord", "RECORD_AUDIO 권한이 필요합니다.");
                 return;
             }
+
             AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                     SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT, AUDIO_BUFFER_SIZE);
+
+// 상태 확인 추가
+            if (recorder.getState() != AudioRecord.STATE_INITIALIZED) {
+                Log.e("AudioRecord", "AudioRecord 초기화 실패");
+                return; // 초기화 실패 시 녹음 종료
+            }
 
             short[] audioData = new short[AUDIO_BUFFER_SIZE / 2];
             recorder.startRecording();
             isRecording = true;
 
+            Log.d("AudioRecord", "오디오 감지 시작");
+
             while (isRecording) {
                 int result = recorder.read(audioData, 0, audioData.length);
                 if (result > 0) {
-                    detectSound(audioData);
+                    detectSound(audioData); // TensorFlow 감지 실행
                 }
             }
 
             recorder.stop();
             recorder.release();
+            Log.d("AudioRecord", "오디오 감지 중지됨");
         }).start();
     }
-
     // TensorFlow Lite 모델 출력 및 차량 감지 메서드
     private void detectSound(short[] audioData) {
         float[][][] input = new float[1][96000][1];
         int length = Math.min(audioData.length, 96000);
 
         for (int i = 0; i < length; i++) {
-            input[0][i][0] = audioData[i]; // PCM 데이터를 정규화
+            input[0][i][0] = audioData[i] / 32768.0f; // PCM 데이터를 -1.0 ~ 1.0 범위로 정규화
         }
 
         float[][] output = new float[1][1];
@@ -303,7 +311,7 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     // 경고창 표시
     private void showVehicleWarning() {
         vehicleWarningLayout.setVisibility(View.VISIBLE);
-        warningMessage.setText("차량이 감지되었습니다!");
+        warningMessage.setText("근처에 차량이 감지되었습니다. 주의하세요!");
     }
 
     // 경고창 숨김
@@ -333,18 +341,28 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     };
 
     private void initTFLite() {
-        try {
-            FileInputStream fis = new FileInputStream(getAssets().openFd("car_detection_raw_audio_model.tflite").getFileDescriptor());
-            FileChannel fileChannel = fis.getChannel();
-            long startOffset = getAssets().openFd("car_detection_raw_audio_model.tflite").getStartOffset();
-            long declaredLength = getAssets().openFd("car_detection_raw_audio_model.tflite").getDeclaredLength();
-            ByteBuffer modelBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
-            tflite = new Interpreter(modelBuffer);
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "TensorFlow 모델 로드 실패", Toast.LENGTH_SHORT).show();
-        }
+        new Thread(() -> {
+            try {
+                // TensorFlow Lite 모델 로드
+                FileInputStream fis = new FileInputStream(getAssets().openFd("car_detection_raw_audio_model.tflite").getFileDescriptor());
+                FileChannel fileChannel = fis.getChannel();
+                long startOffset = getAssets().openFd("car_detection_raw_audio_model.tflite").getStartOffset();
+                long declaredLength = getAssets().openFd("car_detection_raw_audio_model.tflite").getDeclaredLength();
+                ByteBuffer modelBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+                tflite = new Interpreter(modelBuffer);
+
+                // 모델 로드 성공 시 감지 시작
+                Log.d("TFLite", "모델 로드 성공");
+                runOnUiThread(this::startVehicleDetection);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                runOnUiThread(() -> Toast.makeText(this, "TensorFlow 모델 로드 실패", Toast.LENGTH_SHORT).show());
+                Log.e("TFLite", "모델 로드 실패: " + e.getMessage());
+            }
+        }).start();
     }
+
 
 
     @Override
