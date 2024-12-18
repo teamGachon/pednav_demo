@@ -87,6 +87,12 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     private SensorManager sensorManager;
     private Sensor rotationSensor;
     private float currentHeading = 0f;
+    private Sensor accelerometer; // 가속도 센서
+
+    private boolean isMoving = false; // 움직임 감지 여부
+    private boolean isOutdoor = false; // 실내/실외 여부
+    private Location lastLocation; // 마지막 위치 정보
+
 
     // 출발지 목적지 기능
     private EditText startPoint, endPoint;
@@ -112,11 +118,19 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     private static final int AUDIO_BUFFER_SIZE = SAMPLE_RATE * 2;
     private OkHttpClient client = new OkHttpClient();
 
+    // 이전 상태를 저장하는 변수 추가
+    private boolean previousIsMoving = false;   // 이전 움직임 상태
+    private boolean previousIsOutdoor = false;  // 이전 실내/실외 상태
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.fragment_map);
+
+        // fusedLocationClient 초기화
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
 
         mapView = findViewById(R.id.map_view);
         mapView.onCreate(savedInstanceState);
@@ -129,9 +143,71 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
 
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // 권한이 없을 경우 요청
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+            return; // 권한 요청 후 종료
+        }
+
+        // 권한이 있는 경우에만 위치 가져오기
+        fusedLocationClient.getLastLocation().addOnSuccessListener(location -> {
+            if (location != null) {
+                lastLocation = location;
+                float accuracy = location.getAccuracy(); // GPS 정확도 가져오기
+
+                // GPS 정확도 기반 실내/실외 판단
+                boolean currentIsOutdoor = accuracy < 10.5; // GPS 정확도가 10m 이내면 실외
+
+                // 실내/실외 상태가 변했을 때만 로그 출력
+                if (currentIsOutdoor != previousIsOutdoor) {
+                    previousIsOutdoor = currentIsOutdoor; // 상태 업데이트
+                    Log.d("Location Check", "실내외 상태가 변경됨: " + (currentIsOutdoor ? "실외" : "실내"));
+                }
+
+                isOutdoor = currentIsOutdoor; // 현재 상태 업데이트
+                checkConditionsForDetection(); // 조건 체크
+            } else {
+                Log.e("Location", "Location is null");
+            }
+        });
+
+
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        // 가속도 센서 이벤트 리스너
+        sensorManager.registerListener(new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent event) {
+                float x = event.values[0];
+                float y = event.values[1];
+                float z = event.values[2];
+
+                // 선형 가속도 값 사용 (중력 제거됨)
+                double linearAcceleration = Math.sqrt(x * x + y * y + z * z);
+
+                // 움직임 감지 임계값 조정
+                boolean currentIsMoving = linearAcceleration > 2.5; // 기준값 조정 (2.5 ~ 3.0)
+
+                // 움직임 상태가 변했을 때만 로그 출력
+                if (currentIsMoving != previousIsMoving) {
+                    previousIsMoving = currentIsMoving; // 상태 업데이트
+                    Log.d("Movement Check", "움직임 상태가 변경됨: " + (currentIsMoving ? "움직임" : "정지"));
+                }
+
+                isMoving = currentIsMoving; // 현재 상태 업데이트
+                checkConditionsForDetection(); // 조건 체크
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                // 정확도 변화에 대한 처리는 생략 가능
+            }
+        }, accelerometer, SensorManager.SENSOR_DELAY_UI);
+
         mapView.getMapAsync(this);
         locationSource =
                 new FusedLocationSource(this, LOCATION_PERMISSION_REQUEST_CODE);
+
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
         findRouteButton.setOnClickListener(view -> findRoute());
@@ -148,13 +224,18 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
         }
 
 
+
         // 경고창 초기화
         vehicleWarningLayout = findViewById(R.id.vehicle_warning_layout);
         warningMessage = findViewById(R.id.warning_message);
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
-        initTFLite();
-        startVehicleDetection();
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 200);
+        } else {
+            initTFLite();
+            startVehicleDetection();
+        }
 
         // 차량 감지 테스트 버튼 설정
         Button testVehicleDetectionButton = findViewById(R.id.test_vehicle_detection);
@@ -167,7 +248,7 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
                 showVehicleWarning();      // 경고창 표시
 
                 // 차량 감지 상태 메시지
-                Toast.makeText(MapFragmentActivity.this, "차량이 감지되었습니다.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(MapFragmentActivity.this, "근처에 차량이 감지되었습니다. 주의하세요!", Toast.LENGTH_SHORT).show();
                 Log.d("Vehicle Detection", "차량이 감지되었습니다.");
             } else {
                 stopRepeatingVibration(); // 진동 중지
@@ -182,45 +263,69 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
 
     }
 
+    private void checkConditionsForDetection() {
+        Log.d("Condition Check", "조건 체크 - isMoving: " + isMoving + ", isOutdoor: " + isOutdoor);
+
+        // 두 조건을 모두 만족해야 감지 시작
+        if (isMoving && isOutdoor) {
+            if (!isRecording) { // 이미 감지 중이 아니어야 시작
+                isRecording = true;
+                Log.d("Vehicle Detection", "조건 충족 - 감지 시작 (isMoving: " + isMoving + ", isOutdoor: " + isOutdoor + ")");
+                startVehicleDetection();
+            }
+        } else {
+            // 두 조건 중 하나라도 불만족하면 감지를 중지
+            if (isRecording) {
+                isRecording = false;
+                Log.d("Vehicle Detection", "조건 불충족 - 감지 중지 (isMoving: " + isMoving + ", isOutdoor: " + isOutdoor + ")");
+            }
+        }
+    }
+
+
     private void startVehicleDetection() {
         new Thread(() -> {
+            // 권한 확인
             if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                // TODO: Consider calling
-                //    ActivityCompat#requestPermissions
-                // here to request the missing permissions, and then overriding
-                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                //                                          int[] grantResults)
-                // to handle the case where the user grants the permission. See the documentation
-                // for ActivityCompat#requestPermissions for more details.
+                Log.e("AudioRecord", "RECORD_AUDIO 권한이 필요합니다.");
                 return;
             }
+
             AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.MIC,
                     SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO,
                     AudioFormat.ENCODING_PCM_16BIT, AUDIO_BUFFER_SIZE);
+
+// 상태 확인 추가
+            if (recorder.getState() != AudioRecord.STATE_INITIALIZED) {
+                Log.e("AudioRecord", "AudioRecord 초기화 실패");
+                return; // 초기화 실패 시 녹음 종료
+            }
 
             short[] audioData = new short[AUDIO_BUFFER_SIZE / 2];
             recorder.startRecording();
             isRecording = true;
 
+            Log.d("AudioRecord", "오디오 감지 시작");
+
             while (isRecording) {
                 int result = recorder.read(audioData, 0, audioData.length);
                 if (result > 0) {
-                    detectSound(audioData);
+                    detectSound(audioData); // TensorFlow 감지 실행
                 }
             }
 
             recorder.stop();
             recorder.release();
+            Log.d("AudioRecord", "오디오 감지 중지됨");
         }).start();
     }
-
     // TensorFlow Lite 모델 출력 및 차량 감지 메서드
     private void detectSound(short[] audioData) {
         float[][][] input = new float[1][96000][1];
         int length = Math.min(audioData.length, 96000);
 
         for (int i = 0; i < length; i++) {
-            input[0][i][0] = audioData[i]; // PCM 데이터를 정규화
+            input[0][i][0] = audioData[i] / 32768.0f; // PCM 데이터를 -1.0 ~ 1.0 범위로 정규화
         }
 
         float[][] output = new float[1][1];
@@ -303,7 +408,7 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     // 경고창 표시
     private void showVehicleWarning() {
         vehicleWarningLayout.setVisibility(View.VISIBLE);
-        warningMessage.setText("차량이 감지되었습니다!");
+        warningMessage.setText("근처에 차량이 감지되었습니다. 주의하세요!");
     }
 
     // 경고창 숨김
@@ -333,18 +438,28 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     };
 
     private void initTFLite() {
-        try {
-            FileInputStream fis = new FileInputStream(getAssets().openFd("car_detection_raw_audio_model.tflite").getFileDescriptor());
-            FileChannel fileChannel = fis.getChannel();
-            long startOffset = getAssets().openFd("car_detection_raw_audio_model.tflite").getStartOffset();
-            long declaredLength = getAssets().openFd("car_detection_raw_audio_model.tflite").getDeclaredLength();
-            ByteBuffer modelBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
-            tflite = new Interpreter(modelBuffer);
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "TensorFlow 모델 로드 실패", Toast.LENGTH_SHORT).show();
-        }
+        new Thread(() -> {
+            try {
+                // TensorFlow Lite 모델 로드
+                FileInputStream fis = new FileInputStream(getAssets().openFd("car_detection_raw_audio_model.tflite").getFileDescriptor());
+                FileChannel fileChannel = fis.getChannel();
+                long startOffset = getAssets().openFd("car_detection_raw_audio_model.tflite").getStartOffset();
+                long declaredLength = getAssets().openFd("car_detection_raw_audio_model.tflite").getDeclaredLength();
+                ByteBuffer modelBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+                tflite = new Interpreter(modelBuffer);
+
+                // 모델 로드 성공 시 감지 시작
+                Log.d("TFLite", "모델 로드 성공");
+                runOnUiThread(this::startVehicleDetection);
+
+            } catch (IOException e) {
+                e.printStackTrace();
+                runOnUiThread(() -> Toast.makeText(this, "TensorFlow 모델 로드 실패", Toast.LENGTH_SHORT).show());
+                Log.e("TFLite", "모델 로드 실패: " + e.getMessage());
+            }
+        }).start();
     }
+
 
 
     @Override
