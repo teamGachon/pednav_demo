@@ -115,6 +115,9 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
+        WebSocketManager.connect("ws://13.125.30.99:3000/data");
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.fragment_map);
 

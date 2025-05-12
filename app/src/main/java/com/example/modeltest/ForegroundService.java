@@ -44,6 +44,7 @@ public class ForegroundService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        WebSocketManager.connect("ws://13.125.30.99:3000/data"); // 추가
         createNotificationChannel(); // 알림 채널 생성
         acquireWakeLock(); // WakeLock 획득
         initTFLite(); // TensorFlow Lite 모델 초기화
@@ -154,12 +155,28 @@ public class ForegroundService extends Service {
         float[][] output = new float[1][1];
         tflite.run(input, output); // 모델 실행
 
-        long latency = SystemClock.elapsedRealtime() - startTime; // 레이턴시 계산
-        boolean vehicleDetected = output[0][0] < 0.5; // 차량 감지 여부 확인
+        sendDetectionResult(output[0][0]);
 
-        Log.d(TAG, "결과: " + (vehicleDetected ? "Car Detected" : "No Car Sound"));
-        Log.d(TAG, "레이턴시(ms): " + latency);
+
+        boolean vehicleDetected = output[0][0] < 0.5;
+
+        Log.d(TAG, "결과: " + vehicleDetected);
     }
+
+    private void sendDetectionResult(float score) {
+        long timestamp = System.currentTimeMillis();
+
+        try {
+            org.json.JSONObject json = new org.json.JSONObject();
+            json.put("timestamp", timestamp);
+            json.put("vehicle_detected", score);
+            WebSocketManager.send(json.toString());
+            Log.d("WebSocketSend", json.toString());
+        } catch (Exception e) {
+            Log.e("WebSocketSend", "JSON 생성 실패", e);
+        }
+    }
+
 
     @Override
     public void onDestroy() {
@@ -178,4 +195,7 @@ public class ForegroundService extends Service {
     public IBinder onBind(Intent intent) {
         return null; // 바인딩하지 않음
     }
+
+
+
 }
