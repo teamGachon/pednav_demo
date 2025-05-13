@@ -186,31 +186,34 @@ public class ModelTestActivity extends AppCompatActivity {
     private void detectSound(short[] audioData) {
         float[][][] input = new float[1][96000][1];
         int length = Math.min(audioData.length, 96000);
-
         for (int i = 0; i < length; i++) {
-            input[0][i][0] = audioData[i] / 32768.0f; // 데이터 정규화;
+            input[0][i][0] = audioData[i] / 32768.0f;
         }
 
         float[][] output = new float[1][1];
         tflite.run(input, output);
 
-        long endTime = SystemClock.elapsedRealtime(); // 레이턴시 종료 시간 기록
-        long latency = endTime - startTime; // 레이턴시 계산
+        long endTime = SystemClock.elapsedRealtime();
+        long latency = endTime - startTime;
+        float detectionValue = output[0][0];
+        boolean vehicleDetected = detectionValue < 0.5;
 
-        float detectionValue = output[0][0]; // 모델 출력값
-        boolean vehicleDetected = detectionValue < 0.5; // 감지 기준
-
-        Log.d(TAG, "결과: " + detectionValue);
-        Log.d(TAG, "레이턴시(ms): " + latency);
+        // 전송 추가
+        WebSocketManager.onReady(() -> {
+            try {
+                org.json.JSONObject json = new org.json.JSONObject();
+                json.put("timestamp", endTime);
+                json.put("vehicle_detected", detectionValue);
+                WebSocketManager.send(json.toString());
+            } catch (Exception e) {
+                Log.e("WebSocket", "JSON 전송 실패", e);
+            }
+        });
 
         runOnUiThread(() -> {
             resultTextView.setText(vehicleDetected ? "Car Detected" : "No Car Sound");
             vehicleDetectedTextView.setText("차량 감지 여부: " + (vehicleDetected ? "감지됨" : "미감지"));
-
-            // TensorFlow 수치 값을 출력
             scoreTextView.setText(String.format("Detection Score: %.4f", detectionValue));
-
-            // 차량 감지 시 진동
             if (vehicleDetected) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     vibrator.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE));

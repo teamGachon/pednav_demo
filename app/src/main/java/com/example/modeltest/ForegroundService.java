@@ -12,6 +12,7 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.os.SystemClock;
@@ -44,11 +45,15 @@ public class ForegroundService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        WebSocketManager.connect("ws://3.39.233.144:3000/data");
-        createNotificationChannel(); // 알림 채널 생성
-        acquireWakeLock(); // WakeLock 획득
-        initTFLite(); // TensorFlow Lite 모델 초기화
-        executorService = Executors.newSingleThreadExecutor(); // 단일 스레드 ExecutorService 초기화
+
+        new Handler(getMainLooper()).postDelayed(() -> {
+            WebSocketManager.connect("ws://3.39.233.144:3000/data");
+        }, 500);  // 지연을 줘서 안정적 연결
+
+        createNotificationChannel();
+        acquireWakeLock();
+        initTFLite();
+        executorService = Executors.newSingleThreadExecutor();
         Log.d(TAG, "ForegroundService 시작됨.");
     }
 
@@ -151,7 +156,6 @@ public class ForegroundService extends Service {
         for (int i = 0; i < length; i++) {
             input[0][i][0] = audioData[i] / 32768.0f; // PCM 데이터를 정규화
         }
-
         float[][] output = new float[1][1];
         tflite.run(input, output); // 모델 실행
 
@@ -160,20 +164,24 @@ public class ForegroundService extends Service {
 
         boolean vehicleDetected = output[0][0] < 0.5;
 
-        Log.d(TAG, "결과: " + vehicleDetected);
+        Log.d(TAG, "📡 detectSound() 호출됨");
     }
 
     private void sendDetectionResult(float score) {
 
-        long timestamp = System.currentTimeMillis();
+        long timestamp = SystemClock.elapsedRealtime();
 
         try {
             org.json.JSONObject json = new org.json.JSONObject();
             json.put("timestamp", timestamp);
             json.put("vehicle_detected", score);
-            WebSocketManager.send(json.toString());
-            Log.d("WebSocketSend", json.toString());
-        } catch (Exception e) {
+
+            Log.d("WebSocketSend", "🚀 실제 전송 JSON: " + json.toString());
+
+            WebSocketManager.onReady(() -> {
+                WebSocketManager.send(json.toString());
+                Log.d("WebSocketSend", "🚀 실제 전송 JSON: " + json);
+            });        } catch (Exception e) {
             Log.e("WebSocketSend", "JSON 생성 실패", e);
         }
     }
