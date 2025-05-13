@@ -44,7 +44,7 @@ public class ForegroundService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        WebSocketManager.connect("ws://13.125.30.99:3000/data"); // 추가
+        WebSocketManager.connect("ws://3.39.233.144:3000/data");
         createNotificationChannel(); // 알림 채널 생성
         acquireWakeLock(); // WakeLock 획득
         initTFLite(); // TensorFlow Lite 모델 초기화
@@ -164,6 +164,7 @@ public class ForegroundService extends Service {
     }
 
     private void sendDetectionResult(float score) {
+
         long timestamp = System.currentTimeMillis();
 
         try {
