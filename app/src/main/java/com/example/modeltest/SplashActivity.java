@@ -8,8 +8,6 @@ import android.widget.ImageView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import org.json.JSONObject;
-
 public class SplashActivity extends AppCompatActivity {
 
     private static final String Tag = "SplashActivity";

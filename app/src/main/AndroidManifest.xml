@@ -12,6 +12,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
+
+
     <!-- 진동 권한 설저 -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
