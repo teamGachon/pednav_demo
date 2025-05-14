@@ -99,7 +99,7 @@ public class ModelTestActivity extends AppCompatActivity {
         }
 
         final float vehicleProb = vehicleProbSum; // ✅ final로 복사
-        float threshold = 22f / 521f;
+        float threshold = 0.4f;
         boolean vehicleDetected = vehicleProb > threshold;
 
         long timestamp = SystemClock.elapsedRealtime();

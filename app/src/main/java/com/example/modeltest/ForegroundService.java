@@ -138,7 +138,7 @@ public class ForegroundService extends Service {
             vehicleProb += clipProb[i];
         }
 
-        boolean isVehicle = vehicleProb > (22f / 521f);
+        boolean isVehicle = vehicleProb > 0.4f;
         sendDetectionResult(vehicleProb);
         Log.d(TAG, "🚘 차량 감지 결과: " + vehicleProb + " → " + isVehicle);
     }
