@@ -169,7 +169,7 @@ public class ForegroundService extends Service {
 
     private void sendDetectionResult(float score) {
 
-        long timestamp = SystemClock.elapsedRealtime();
+        long timestamp = System.currentTimeMillis();
 
         try {
             org.json.JSONObject json = new org.json.JSONObject();

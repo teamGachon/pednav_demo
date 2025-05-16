@@ -202,7 +202,7 @@ public class ModelTestActivity extends AppCompatActivity {
         WebSocketManager.onReady(() -> {
             try {
                 org.json.JSONObject json = new org.json.JSONObject();
-                json.put("timestamp", endTime);
+                json.put("timestamp", System.currentTimeMillis());
                 json.put("vehicle_detected", detectionValue);
                 WebSocketManager.send(json.toString());
             } catch (Exception e) {
