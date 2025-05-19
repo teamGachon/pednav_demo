@@ -70,6 +70,16 @@
         <!-- NaverFragmentActivity -->
         <activity android:name=".MapFragmentActivity"
             android:exported="true">
+        </activity>
+
+        <!-- NavigationActivity -->
+        <activity android:name=".NavigationActivity"
+            android:exported="true">
+        </activity>
+
+        <!--  ModeSelectorActivity -->
+        <activity android:name=".ModeSelectorActivity"
+            android:exported="true">
 
         </activity>
     </application>

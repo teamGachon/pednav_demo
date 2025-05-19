@@ -26,7 +26,7 @@ public class SplashActivity extends AppCompatActivity {
 
                Log.e(Tag, "Application Running.....");
                // Splash Screen이 뜨고 나서 실행될 Activity 연결
-               startActivity(new Intent(getApplicationContext(), MainActivity.class));
+               startActivity(new Intent(getApplicationContext(), ModeSelectorActivity.class));
                finish();
            }
         }, 2000);

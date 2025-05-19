@@ -578,7 +578,11 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     protected void onDestroy() {
         super.onDestroy();
         isRecording = false;
-        tflite.close();
+
+        if (tflite != null) {
+            tflite.close();
+            tflite = null; // 메모리 누수 방지용 (선택)
+        }
     }
 
     interface OnGeocodeListener {
