@@ -12,7 +12,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
-    <!-- 진동 권한 설저 -->
+    <!-- 진동 권한 설정 -->
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- 자이로스코프 (방향 센서) 권한 설정 -->

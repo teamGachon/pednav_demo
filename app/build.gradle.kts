@@ -33,6 +33,7 @@ android {
     buildFeatures {
         dataBinding = true
     }
+    buildToolsVersion = "34.0.0"
 }
 
 
@@ -56,10 +57,12 @@ dependencies {
 
     // TFLite
     implementation("org.tensorflow:tensorflow-lite:2.12.0")
-    implementation("org.tensorflow:tensorflow-lite-support:0.4.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.3")
+    implementation("org.tensorflow:tensorflow-lite-select-tf-ops:2.11.0")
 
     implementation("com.google.android.gms:play-services-location:21.0.1")
 
+    // Web Socket
     implementation ("org.java-websocket:Java-WebSocket:1.5.2")
 
     // Card View

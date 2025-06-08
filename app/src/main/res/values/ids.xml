@@ -5,4 +5,6 @@
     <item name="et_start" type="id" />
     <item name="et_destination" type="id" />
     <item name="btn_search2" type="id" />
+    <item name="btnStartDetection" type="id" />
+    <item name="btnStopDetection" type="id" />
 </resources>

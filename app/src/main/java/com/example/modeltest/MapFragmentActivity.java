@@ -1,5 +1,6 @@
 package com.example.modeltest;
 
+// Android SDK imports
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -22,127 +23,153 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.FrameLayout;
-import android.widget.ImageButton;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.widget.*;
 
+// AndroidX imports
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
-import androidx.fragment.app.FragmentManager;
 
+// Naver Map imports
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.naver.maps.geometry.LatLng;
-import com.naver.maps.map.CameraUpdate;
-import com.naver.maps.map.LocationTrackingMode;
-import com.naver.maps.map.MapFragment;
-import com.naver.maps.map.MapView;
-import com.naver.maps.map.NaverMap;
-import com.naver.maps.map.NaverMapOptions;
-import com.naver.maps.map.OnMapReadyCallback;
-import com.naver.maps.map.UiSettings;
-import com.naver.maps.map.overlay.LocationOverlay;
-import com.naver.maps.map.overlay.Marker;
-import com.naver.maps.map.overlay.OverlayImage;
-import com.naver.maps.map.overlay.PathOverlay;
+import com.naver.maps.map.*;
+import com.naver.maps.map.overlay.*;
 import com.naver.maps.map.util.FusedLocationSource;
-import com.naver.maps.map.widget.ZoomControlView;
 
-import java.io.FileInputStream;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-
+// TensorFlow Lite and networking
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.tensorflow.lite.Interpreter;
-
-import java.io.IOException;
+import java.io.*;
+import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
+import java.util.stream.IntStream;
 
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import okhttp3.*;
 
 public class MapFragmentActivity extends AppCompatActivity implements OnMapReadyCallback, LocationListener {
 
+    // 상수 선언
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
+    private static final int SAMPLE_RATE = 44100;
+    private static final int AUDIO_BUFFER_SIZE = SAMPLE_RATE * 2;
+
+    // 차량 경고 관련 변수
     private Handler blinkHandler = new Handler();
     private boolean isBlinking = false;
-    private boolean isVehicleDetected = false; // 차량 탐지 여부
+    private boolean isVehicleDetected = false;
+    private Vibrator vibrator;
+    private LinearLayout vehicleWarningLayout;
+    private TextView warningMessage;
+    private FrameLayout rootLayout;
+    private View overlayView;
 
     // 네이버 지도 관련 전역 변수
     private MapView mapView;
-    private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
-    private FusedLocationSource locationSource;
     private NaverMap naverMap;
+    private FusedLocationSource locationSource;
     private FusedLocationProviderClient fusedLocationClient;
-
-    // 위도, 경도
-    private double lat, lon;
-
-    private View overlayView;
-    private FrameLayout rootLayout;
-
-    // Sensor 관련 멤버 변수 선언
-    private SensorManager sensorManager;
-    private Sensor rotationSensor;
-    private float currentHeading = 0f;
-
-
-    // 경고창 관련 변수
-    private LinearLayout vehicleWarningLayout;
-
-    private TextView warningMessage;
-    private Vibrator vibrator;
-
-    // 마커 객체
-    private Marker startMarker = new Marker(); // 출발지 마커
-    private Marker endMarker = new Marker();   // 목적지 마커
 
     // TensorFlow Lite 모델
     private Interpreter tflite;
     private boolean isRecording = false;
 
+    // UI 입력 필드
+    private EditText etStart, etDestination, searchInput;
+    private String start, destination;
+    private ImageView btnFilter, btnSearch;
+    private LinearLayout searchBar, routeInputLayout;
+    private ImageButton btnToModelTest, btnTestVehicleDetection;
+
+    // 센서 및 방향
+    private SensorManager sensorManager;
+    private Sensor rotationSensor;
+    private float currentHeading = 0f;
+
+    // 마커 객체
+    private Marker startMarker = new Marker(); // 출발지 마커
+    private Marker endMarker = new Marker();   // 목적지 마커
+
+    private YamnetClassifier yamnet;
+    private AudioCapture audioCapture;
+
+    // 현재 위치 좌표
+    private double lat, lon;
+
+    // 네이버 API 키
     private static final String NAVER_CLIENT_ID = "dexbyijg2d";
     private static final String NAVER_CLIENT_SECRET = "oWbby1gXrrhtYftuyonY71axZ3K8NrgsbwdLVu2m";
-    private static final int SAMPLE_RATE = 48000;
-    private static final int AUDIO_BUFFER_SIZE = SAMPLE_RATE * 2;
     private OkHttpClient client = new OkHttpClient();
-
-    private String start, destination;
-    EditText etStart, etDestination;
 
 
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
-        WebSocketManager.connect("ws://13.125.30.99:3000/data");
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.fragment_map);
 
-        mapView = findViewById(R.id.map_view);
+        initLayout();
+        onClickEventListener();
+
         mapView.onCreate(savedInstanceState);
+        mapView.getMapAsync(this);
+        locationSource = new FusedLocationSource(this, LOCATION_PERMISSION_REQUEST_CODE);
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
-        ImageView btnFilter = findViewById(R.id.btn_filter);
-        // ImageView btnSearch = findViewById(R.id.btn_search);
+        // 센서 매니저 초기화
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
 
-        EditText searchInput = findViewById(R.id.search_input);
-        LinearLayout searchBar = findViewById(R.id.search_bar);
-        LinearLayout routeInputLayout = findViewById(R.id.route_input_layout);
+        vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
-        ImageButton btnToModelTest = findViewById(R.id.btn_to_model_test);
+        locationSource =
+                new FusedLocationSource(this, LOCATION_PERMISSION_REQUEST_CODE);
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
+        if (rootLayout == null) {
+            Log.e("MapFragmentActivity", "rootLayout is null. Check the XML layout ID.");
+        }
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 200);
+        } else {
+            initTFLite();
+            startVehicleDetection();
+        }
+
+        initModel();
+
+    }
+
+    private void initLayout(){
+        // 지도 초기화
+        mapView = findViewById(R.id.map_view);
+
+        // UI 초기화
+        btnFilter = findViewById(R.id.btn_filter);
+        searchInput = findViewById(R.id.search_input);
+        searchBar = findViewById(R.id.search_bar);
+        routeInputLayout = findViewById(R.id.route_input_layout);
+        btnToModelTest = findViewById(R.id.btn_to_model_test);
+        etStart = findViewById(R.id.et_start);
+        etDestination = findViewById(R.id.et_destination);
+        btnSearch = findViewById(R.id.btn_search2);
+        btnTestVehicleDetection = findViewById(R.id.btn_test_vehicle_detection);
+        overlayView = findViewById(R.id.overlay_view);
+
+        // 뷰 초기화
+        rootLayout = findViewById(R.id.root_layout);
+
+        // 경고창 초기화
+        vehicleWarningLayout = findViewById(R.id.vehicle_warning_layout);
+        warningMessage = findViewById(R.id.warning_message);
+    }
+
+    private void onClickEventListener(){
         // 모델 테스트 페이지로 이동
         btnToModelTest.setOnClickListener(v -> {
             Intent intent = new Intent(this, ModelTestActivity.class);
@@ -157,54 +184,17 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
             }
         });
 
-        etStart = findViewById(R.id.et_start);
-        etDestination = findViewById(R.id.et_destination);
-
-
-        // 센서 매니저 초기화
-        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        rotationSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION);
-
-        mapView.getMapAsync(this);
-        locationSource =
-                new FusedLocationSource(this, LOCATION_PERMISSION_REQUEST_CODE);
-        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
-
-        // 뷰 초기화
-        rootLayout = findViewById(R.id.root_layout);
-        if (rootLayout == null) {
-            Log.e("MapFragmentActivity", "rootLayout is null. Check the XML layout ID.");
-        }
-
         // 설정 페이지로 이동
         btnFilter.setOnClickListener(v -> {
             Intent intent = new Intent(this, SettingActivity.class);
             startActivity(intent);
         });
-
-        ImageView btnSearch = findViewById(R.id.btn_search2);
         btnSearch.setOnClickListener(view -> findRoute());
-
-        overlayView = findViewById(R.id.overlay_view);
         if (overlayView == null) {
             Log.e("MapFragmentActivity", "overlayView is null. Check the XML ID.");
         }
 
-
-        // 경고창 초기화
-        vehicleWarningLayout = findViewById(R.id.vehicle_warning_layout);
-        warningMessage = findViewById(R.id.warning_message);
-        vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 200);
-        } else {
-            initTFLite();
-            startVehicleDetection();
-        }
-
         // 차량 감지 테스트 버튼 설정
-        ImageButton btnTestVehicleDetection = findViewById(R.id.btn_test_vehicle_detection);
         btnTestVehicleDetection.setOnClickListener(view -> {
             isVehicleDetected = !isVehicleDetected; // 차량 탐지 여부 토글
 
@@ -226,7 +216,40 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
                 Log.d("Vehicle Detection", "차량 감지가 해제되었습니다.");
             }
         });
+    }
 
+    private void initModel(){
+        try {
+            yamnet = new YamnetClassifier(this);
+            audioCapture = new AudioCapture();
+
+            audioCapture.start(buffer -> {
+                float[] clipProb = yamnet.runInference(buffer);
+                int[] vehicleIndices = IntStream.range(300, 322).toArray();
+                float vehicleProb = 0f;
+                for (int idx : vehicleIndices) vehicleProb += clipProb[idx];
+                vehicleProb /= vehicleIndices.length;
+
+                boolean isVehicle = vehicleProb > 0.1f;
+
+                runOnUiThread(() -> {
+                    if (isVehicle && !isVehicleDetected) {
+                        isVehicleDetected = true;
+                        showVehicleWarning();
+                        startBlinkingOverlay();
+                        startRepeatingVibration();
+                    } else if (!isVehicle && isVehicleDetected) {
+                        isVehicleDetected = false;
+                        hideVehicleWarning();
+                        stopBlinkingOverlay();
+                        stopRepeatingVibration();
+                    }
+                });
+            });
+        } catch (Exception e) {
+            Toast.makeText(this, "모델 초기화 실패", Toast.LENGTH_SHORT).show();
+            Log.e("MapActivity", "모델 초기화 실패", e);
+        }
     }
 
     @Override
@@ -334,10 +357,9 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     // 반복 진동 시작
     private void startRepeatingVibration() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            long[] pattern = {0, 500, 500}; // 0.5초 진동, 0.5초 쉬기 반복
-            vibrator.vibrate(VibrationEffect.createWaveform(pattern, 0));
+            vibrator.vibrate(VibrationEffect.createWaveform(new long[]{0, 500, 500}, 0));
         } else {
-            vibrator.vibrate(new long[]{0, 500, 500}, 0); // API 26 미만
+            vibrator.vibrate(new long[]{0, 500, 500}, 0);
         }
     }
 
@@ -350,17 +372,14 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     private void startBlinkingOverlay() {
         if (isBlinking) return;
         isBlinking = true;
-
         blinkHandler.post(new Runnable() {
             boolean visible = true;
-
             @Override
             public void run() {
                 if (!isVehicleDetected) {
                     stopBlinkingOverlay();
                     return;
                 }
-
                 overlayView.setBackgroundColor(visible ? Color.parseColor("#88FFB3B3") : Color.TRANSPARENT);
                 visible = !visible;
                 blinkHandler.postDelayed(this, 500);
@@ -436,7 +455,6 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
         this.naverMap = naverMap;
         naverMap.setLocationSource(locationSource);
         naverMap.setLocationTrackingMode(LocationTrackingMode.Follow);
-//        Log.d("NAVER_MAP", "지도 준비 완료");
         naverMap.addOnLocationChangeListener(new NaverMap.OnLocationChangeListener(){
 
             @Override
@@ -445,8 +463,6 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
                 // 좌표 받아서 문자 전송
                 lat = location.getLatitude();
                 lon = location.getLongitude();
-
-                //Toast.makeText(getApplicationContext(), lat+" "+lon, Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -650,12 +666,7 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        isRecording = false;
-
-        if (tflite != null) {
-            tflite.close();
-            tflite = null; // 메모리 누수 방지용 (선택)
-        }
+        if (audioCapture != null) audioCapture.stop();
     }
 
     interface OnGeocodeListener {
