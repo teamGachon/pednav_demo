@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <solid android:color="#FFFDF9" /> <!-- 부드러운 아이보리/베이지 톤 -->
+    <corners android:radius="40dp" />
+    <stroke android:width="1dp" android:color="#E0E0E0" />
+</shape>

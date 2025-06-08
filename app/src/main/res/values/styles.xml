@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 연한 초록색 버튼 스타일 -->
     <style name="GreenButtonTheme">
         <item name="android:background">@drawable/rounded_green_button</item>
@@ -15,5 +15,13 @@
         <item name="android:textStyle">bold</item>
         <item name="android:gravity">center</item>
         <item name="android:fontFamily">@font/cafe24decobox</item>
+    </style>
+
+    <style name="SettingCardStyle">
+        <item name="android:orientation">horizontal</item>
+        <item name="android:background">@drawable/bg_setting_card</item>
+        <item name="android:padding">16dp</item>
+        <item name="android:layout_marginBottom">14dp</item>
+        <item name="android:gravity">center_vertical</item>
     </style>
 </resources>

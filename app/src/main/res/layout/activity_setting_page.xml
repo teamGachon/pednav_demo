@@ -1,58 +1,85 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#F5F5F5"
-    android:padding="16dp">
+    android:padding="20dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Header -->
+        <!-- 헤더 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:background="#454545"
-            android:padding="16dp"
             android:layout_marginBottom="16dp">
 
-            <TextView
+            <!-- 뒤로 가기 버튼 + 설정 텍스트 -->
+            <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Settings"
-                android:textSize="24sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:gravity="center" />
+                android:paddingBottom="8dp">
 
+                <ImageView
+                    android:id="@+id/btn_back"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:src="@drawable/ic_arrow_back"
+                    android:contentDescription="뒤로 가기"
+                    app:tint="#333333" />
+
+                <TextView
+                    android:id="@+id/title_setting"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerInParent="true"
+                    android:text="설정"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:textColor="#333333"
+                    android:fontFamily="@font/gmarketsansttfmedium" />
+            </RelativeLayout>
+
+            <!-- 서브 텍스트 -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Manage app features and preferences"
+                android:text="앱 기능과 권한 관리"
                 android:textSize="14sp"
-                android:textColor="#FFFFFF"
+                android:textColor="#666666"
+                android:layout_marginTop="4dp"
+                android:layout_marginBottom="20dp"
                 android:gravity="center"
-                android:layout_marginTop="4dp" />
+                android:fontFamily="@font/gmarketsansttfmedium" />
+
+            <!-- 실선 -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#DDDDDD" />
         </LinearLayout>
 
-        <!-- GPS Section -->
+        <!-- GPS -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:background="@drawable/card_background"
             android:padding="16dp"
-            android:layout_marginBottom="12dp"
+            android:layout_marginBottom="14dp"
             android:gravity="center_vertical">
 
             <ImageView
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:src="@drawable/google_maps"
-                android:contentDescription="GPS Icon" />
+                android:contentDescription="GPS 아이콘" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -64,40 +91,47 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="GPS"
-                    android:textSize="16sp"
+                    android:text="GPS 위치 기능"
+                    android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="#000000" />
+                    android:textColor="#333333"
+                    android:fontFamily="@font/gmarketsansttfmedium" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Enable GPS for navigation"
-                    android:textSize="14sp"
-                    android:textColor="#757575" />
+                    android:text="길찾기를 위해 GPS를 사용합니다"
+                    android:textSize="12sp"
+                    android:textColor="#777777"
+                    android:fontFamily="@font/gmarketsansttfmedium" />
             </LinearLayout>
 
-            <Switch
+            <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/switch_gps"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:scaleX="0.8"
+                android:scaleY="0.8"
+                android:thumbTint="@color/pastel_blue_thumb"
+                android:trackTint="@color/pastel_blue_track" />
         </LinearLayout>
 
-        <!-- Background Run Section -->
+        <!-- 백그라운드 실행 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:background="@drawable/card_background"
             android:padding="16dp"
-            android:layout_marginBottom="12dp"
+            android:layout_marginBottom="14dp"
             android:gravity="center_vertical">
 
             <ImageView
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:src="@drawable/background_app"
-                android:contentDescription="Background Run Icon" />
+                android:contentDescription="백그라운드 실행 아이콘" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -109,40 +143,47 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Background Run"
-                    android:textSize="16sp"
+                    android:text="백그라운드 실행"
+                    android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="#000000" />
+                    android:textColor="#333333"
+                    android:fontFamily="@font/gmarketsansttfmedium" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Allow app to run in background"
-                    android:textSize="14sp"
-                    android:textColor="#757575" />
+                    android:text="앱이 꺼져도 기능을 유지합니다"
+                    android:textSize="12sp"
+                    android:textColor="#777777"
+                    android:fontFamily="@font/gmarketsansttfmedium" />
             </LinearLayout>
 
-            <Switch
+            <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/switch_background_run"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:scaleX="0.8"
+                android:scaleY="0.8"
+                android:thumbTint="@color/pastel_blue_thumb"
+                android:trackTint="@color/pastel_blue_track" />
         </LinearLayout>
 
-        <!-- Vehicle Detection Section -->
+        <!-- 차량 감지 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:background="@drawable/card_background"
             android:padding="16dp"
-            android:layout_marginBottom="12dp"
+            android:layout_marginBottom="14dp"
             android:gravity="center_vertical">
 
             <ImageView
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:src="@drawable/autonomous_car"
-                android:contentDescription="Vehicle Detection Icon" />
+                android:contentDescription="차량 감지 아이콘" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -154,39 +195,47 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Vehicle Detection Alerm"
-                    android:textSize="16sp"
+                    android:text="차량 감지 알림"
+                    android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="#000000" />
+                    android:textColor="#333333"
+                    android:fontFamily="@font/gmarketsansttfmedium" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Detect nearby vehicles via sound"
-                    android:textSize="14sp"
-                    android:textColor="#757575" />
+                    android:text="주변 차량 소리를 인식합니다"
+                    android:textSize="12sp"
+                    android:textColor="#777777"
+                    android:fontFamily="@font/gmarketsansttfmedium" />
             </LinearLayout>
 
-            <Switch
+            <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/switch_vehicle_detection"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:scaleX="0.8"
+                android:scaleY="0.8"
+                android:thumbTint="@color/pastel_blue_thumb"
+                android:trackTint="@color/pastel_blue_track" />
         </LinearLayout>
 
-        <!-- Auto Noise Cancelling Section -->
+        <!-- 마이크 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:background="@drawable/card_background"
             android:padding="16dp"
+            android:layout_marginBottom="14dp"
             android:gravity="center_vertical">
 
             <ImageView
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:src="@drawable/google_voice"
-                android:contentDescription="Noise Cancelling Icon" />
+                android:contentDescription="마이크 아이콘" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -198,26 +247,33 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Microphone"
-                    android:textSize="16sp"
+                    android:text="마이크"
+                    android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="#000000" />
+                    android:textColor="#333333"
+                    android:fontFamily="@font/gmarketsansttfmedium" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Automatically turn microphone on"
-                    android:textSize="14sp"
-                    android:textColor="#757575" />
+                    android:text="마이크 기능을 사용합니다"
+                    android:textSize="12sp"
+                    android:textColor="#777777"
+                    android:fontFamily="@font/gmarketsansttfmedium" />
             </LinearLayout>
 
-            <Switch
+            <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/switch_microphone"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:scaleX="0.8"
+                android:scaleY="0.8"
+                android:thumbTint="@color/pastel_blue_thumb"
+                android:trackTint="@color/pastel_blue_track" />
         </LinearLayout>
 
-        <!-- Microphone Section -->
+        <!-- 노이즈캔슬링 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -227,10 +283,10 @@
             android:gravity="center_vertical">
 
             <ImageView
-                android:layout_width="40dp"
-                android:layout_height="40dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
                 android:src="@drawable/noise_cancelling"
-                android:contentDescription="Noise Cancelling Icon" />
+                android:contentDescription="노이즈캔슬링 아이콘" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -242,23 +298,32 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Noise Cancelling"
-                    android:textSize="16sp"
+                    android:text="노이즈캔슬링"
+                    android:textSize="14sp"
                     android:textStyle="bold"
-                    android:textColor="#000000" />
+                    android:textColor="#333333"
+                    android:fontFamily="@font/gmarketsansttfmedium" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Automatically adjust noise"
-                    android:textSize="14sp"
-                    android:textColor="#757575" />
+                    android:text="소음을 자동으로 조절합니다"
+                    android:textSize="12sp"
+                    android:textColor="#777777"
+                    android:fontFamily="@font/gmarketsansttfmedium" />
             </LinearLayout>
 
-            <Switch
+            <androidx.appcompat.widget.SwitchCompat
                 android:id="@+id/switch_auto_noise"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_vertical"
+                android:scaleX="0.8"
+                android:scaleY="0.8"
+                android:thumbTint="@color/pastel_blue_thumb"
+                android:trackTint="@color/pastel_blue_track" />
         </LinearLayout>
+
     </LinearLayout>
 </ScrollView>
+

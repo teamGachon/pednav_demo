@@ -62,4 +62,13 @@ dependencies {
 
     implementation ("org.java-websocket:Java-WebSocket:1.5.2")
 
+    // Card View
+    implementation ("androidx.cardview:cardview:1.0.0")
+
+    // Retrofit
+    implementation("com.squareup.retrofit2:retrofit:2.6.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.6.0")
+
+    implementation("com.google.android.material:material:1.11.0")
+
 }

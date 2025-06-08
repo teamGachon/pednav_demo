@@ -1,7 +1,9 @@
 package com.example.modeltest;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.hardware.Sensor;
@@ -18,35 +20,39 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
-import android.speech.tts.TextToSpeech;
-import android.telephony.SmsManager;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.FragmentManager;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.tasks.OnSuccessListener;
 import com.naver.maps.geometry.LatLng;
 import com.naver.maps.map.CameraUpdate;
 import com.naver.maps.map.LocationTrackingMode;
+import com.naver.maps.map.MapFragment;
 import com.naver.maps.map.MapView;
 import com.naver.maps.map.NaverMap;
+import com.naver.maps.map.NaverMapOptions;
 import com.naver.maps.map.OnMapReadyCallback;
+import com.naver.maps.map.UiSettings;
 import com.naver.maps.map.overlay.LocationOverlay;
 import com.naver.maps.map.overlay.Marker;
+import com.naver.maps.map.overlay.OverlayImage;
 import com.naver.maps.map.overlay.PathOverlay;
 import com.naver.maps.map.util.FusedLocationSource;
+import com.naver.maps.map.widget.ZoomControlView;
 
 import java.io.FileInputStream;
 import java.io.UnsupportedEncodingException;
@@ -60,7 +66,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
-import java.util.Locale;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -74,11 +79,15 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     private boolean isBlinking = false;
     private boolean isVehicleDetected = false; // 차량 탐지 여부
 
+    // 네이버 지도 관련 전역 변수
     private MapView mapView;
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
     private FusedLocationSource locationSource;
     private NaverMap naverMap;
     private FusedLocationProviderClient fusedLocationClient;
+
+    // 위도, 경도
+    private double lat, lon;
 
     private View overlayView;
     private FrameLayout rootLayout;
@@ -88,9 +97,6 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     private Sensor rotationSensor;
     private float currentHeading = 0f;
 
-    // 출발지 목적지 기능
-    private EditText startPoint, endPoint;
-    private Button findRouteButton;
 
     // 경고창 관련 변수
     private LinearLayout vehicleWarningLayout;
@@ -112,7 +118,11 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     private static final int AUDIO_BUFFER_SIZE = SAMPLE_RATE * 2;
     private OkHttpClient client = new OkHttpClient();
 
+    private String start, destination;
+    EditText etStart, etDestination;
 
+
+    @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -124,9 +134,32 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
         mapView = findViewById(R.id.map_view);
         mapView.onCreate(savedInstanceState);
 
-        startPoint = findViewById(R.id.start_point);
-        endPoint = findViewById(R.id.end_point);
-        findRouteButton = findViewById(R.id.find_route_button);
+        ImageView btnFilter = findViewById(R.id.btn_filter);
+        // ImageView btnSearch = findViewById(R.id.btn_search);
+
+        EditText searchInput = findViewById(R.id.search_input);
+        LinearLayout searchBar = findViewById(R.id.search_bar);
+        LinearLayout routeInputLayout = findViewById(R.id.route_input_layout);
+
+        ImageButton btnToModelTest = findViewById(R.id.btn_to_model_test);
+
+        // 모델 테스트 페이지로 이동
+        btnToModelTest.setOnClickListener(v -> {
+            Intent intent = new Intent(this, ModelTestActivity.class);
+            startActivity(intent);
+        });
+
+        searchInput.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                searchBar.setVisibility(View.GONE);
+                routeInputLayout.setVisibility(View.VISIBLE);
+            }
+        });
+
+        etStart = findViewById(R.id.et_start);
+        etDestination = findViewById(R.id.et_destination);
+
 
         // 센서 매니저 초기화
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -137,13 +170,20 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
                 new FusedLocationSource(this, LOCATION_PERMISSION_REQUEST_CODE);
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
-        findRouteButton.setOnClickListener(view -> findRoute());
-
         // 뷰 초기화
         rootLayout = findViewById(R.id.root_layout);
         if (rootLayout == null) {
             Log.e("MapFragmentActivity", "rootLayout is null. Check the XML layout ID.");
         }
+
+        // 설정 페이지로 이동
+        btnFilter.setOnClickListener(v -> {
+            Intent intent = new Intent(this, SettingActivity.class);
+            startActivity(intent);
+        });
+
+        ImageView btnSearch = findViewById(R.id.btn_search2);
+        btnSearch.setOnClickListener(view -> findRoute());
 
         overlayView = findViewById(R.id.overlay_view);
         if (overlayView == null) {
@@ -164,8 +204,8 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
         }
 
         // 차량 감지 테스트 버튼 설정
-        Button testVehicleDetectionButton = findViewById(R.id.test_vehicle_detection);
-        testVehicleDetectionButton.setOnClickListener(view -> {
+        ImageButton btnTestVehicleDetection = findViewById(R.id.btn_test_vehicle_detection);
+        btnTestVehicleDetection.setOnClickListener(view -> {
             isVehicleDetected = !isVehicleDetected; // 차량 탐지 여부 토글
 
             if (isVehicleDetected) {
@@ -187,6 +227,30 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
             }
         });
 
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        mapView.onStart();
+    }
+
+    @Override
+    public void onResume(){
+        super.onResume();
+        mapView.onResume();
+    }
+
+    @Override
+    public void onPause(){
+        super.onPause();
+        mapView.onPause();
+    }
+
+    @Override
+    public void onStop(){
+        super.onStop();
+        mapView.onStop();
     }
 
     private void startVehicleDetection() {
@@ -367,25 +431,32 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     }
 
 
-
     @Override
     public void onMapReady(@NonNull NaverMap naverMap) {
         this.naverMap = naverMap;
         naverMap.setLocationSource(locationSource);
+        naverMap.setLocationTrackingMode(LocationTrackingMode.Follow);
+//        Log.d("NAVER_MAP", "지도 준비 완료");
+        naverMap.addOnLocationChangeListener(new NaverMap.OnLocationChangeListener(){
 
-        // 권한 요청
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
-        } else {
-            enableMyLocation();
-        }
+            @Override
+            public void onLocationChange(@NonNull Location location) {
+                // 위치가 변경되면 다음의 코드들이 수행된다.
+                // 좌표 받아서 문자 전송
+                lat = location.getLatitude();
+                lon = location.getLongitude();
+
+                //Toast.makeText(getApplicationContext(), lat+" "+lon, Toast.LENGTH_SHORT).show();
+            }
+        });
 
         // 센서 리스너 등록
         sensorManager.registerListener(sensorEventListener, rotationSensor, SensorManager.SENSOR_DELAY_UI);
+        // UI
+        UiSettings uiSettings = naverMap.getUiSettings();
+        uiSettings.setLocationButtonEnabled(true);
 
-        Marker marker = new Marker();
-        marker.setPosition(new LatLng(37.5670135, 126.9783740));
-        marker.setMap(naverMap);
+
     }
 
     private void enableMyLocation() {
@@ -401,25 +472,22 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
             // for ActivityCompat#requestPermissions for more details.
             return;
         }
-        fusedLocationClient.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
-            @Override
-            public void onSuccess(Location location) {
-                if (location != null) {
-                    // 현재 위치로 지도 이동
-                    CameraUpdate cameraUpdate = CameraUpdate.scrollTo(new com.naver.maps.geometry.LatLng(location.getLatitude(), location.getLongitude()));
-                    naverMap.moveCamera(cameraUpdate);
+        fusedLocationClient.getLastLocation().addOnSuccessListener(this, location -> {
+            if (location != null) {
+                // 현재 위치로 지도 이동
+                CameraUpdate cameraUpdate = CameraUpdate.scrollTo(new LatLng(location.getLatitude(), location.getLongitude()));
+                naverMap.moveCamera(cameraUpdate);
 
-                    // 현재 위치 아이콘 설정
-                    LocationOverlay locationOverlay = naverMap.getLocationOverlay();
-                    locationOverlay.setVisible(true);
-                    locationOverlay.setPosition(new com.naver.maps.geometry.LatLng(location.getLatitude(), location.getLongitude()));
-                }
+                // 현재 위치 아이콘 설정
+                LocationOverlay locationOverlay = naverMap.getLocationOverlay();
+                locationOverlay.setVisible(true);
+                locationOverlay.setPosition(new LatLng(location.getLatitude(), location.getLongitude()));
             }
         });
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState){
+    protected void onSaveInstanceState(@NonNull Bundle outState){
         super.onSaveInstanceState(outState);
         mapView.onSaveInstanceState(outState);
     }
@@ -440,8 +508,8 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     }
 
     private void findRoute() {
-        String startAddress = startPoint.getText().toString();
-        String endAddress = endPoint.getText().toString();
+        String startAddress = etStart.getText().toString();
+        String endAddress = etDestination.getText().toString();
 
         if (startAddress.isEmpty() || endAddress.isEmpty()) {
             Toast.makeText(this, "출발지와 목적지를 입력해주세요.", Toast.LENGTH_SHORT).show();
@@ -478,6 +546,8 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
                     try {
                         JSONObject json = new JSONObject(response.body().string());
                         JSONArray addresses = json.getJSONArray("addresses");
+
+                        Log.d("주소 확인", "입력된 주소: "+addresses);
                         if (addresses.length() > 0) {
                             JSONObject location = addresses.getJSONObject(0);
                             double lat = location.getDouble("y"); // 위도
@@ -567,6 +637,9 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
         path.setCoords(latLngList); // 경로 좌표 설정
         path.setColor(Color.BLUE);  // 경로 색상 설정
         path.setMap(naverMap);      // 지도에 표시
+        path.setOutlineColor(Color.WHITE);
+        path.setPassedOutlineColor(Color.GREEN);
+        path.setOutlineWidth(5); // 테두리 두께
 
         // 경로 시작 지점으로 카메라 이동
         if (!latLngList.isEmpty()) {

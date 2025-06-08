@@ -3,10 +3,12 @@ package com.example.modeltest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.widget.ImageView;
 import android.widget.Switch;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import android.content.res.ColorStateList;
@@ -24,11 +26,20 @@ public class SettingActivity extends AppCompatActivity {
         setContentView(R.layout.activity_setting_page);
 
         // Switches
-        Switch switchGPS = findViewById(R.id.switch_gps);
-        Switch switchBackgroundRun = findViewById(R.id.switch_background_run);
-        Switch switchVehicleAlerm = findViewById(R.id.switch_vehicle_detection);
-        Switch switchMicrophone = findViewById(R.id.switch_microphone);
-        Switch switchAutoNoise = findViewById(R.id.switch_auto_noise);
+        SwitchCompat switchGPS = findViewById(R.id.switch_gps);
+        SwitchCompat switchBackgroundRun = findViewById(R.id.switch_background_run);
+        SwitchCompat switchVehicleAlerm = findViewById(R.id.switch_vehicle_detection);
+        SwitchCompat switchMicrophone = findViewById(R.id.switch_microphone);
+        SwitchCompat switchAutoNoise = findViewById(R.id.switch_auto_noise);
+
+        // Back Button
+        ImageView btnBack = findViewById(R.id.btn_back);
+
+        // 메인 페이지로 되돌아가기
+        btnBack.setOnClickListener(v ->{
+            Intent intent = new Intent(this, MapFragmentActivity.class);
+            startActivity(intent);
+        });
 
         // Listener for toggling states
         setToggleColor(switchGPS);
@@ -140,7 +151,7 @@ public class SettingActivity extends AppCompatActivity {
     }
 
 
-    private void setToggleColor(Switch switchToggle) {
+    private void setToggleColor(SwitchCompat switchToggle) {
         switchToggle.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
                 switchToggle.setThumbTintList(getColorStateList(R.color.green));

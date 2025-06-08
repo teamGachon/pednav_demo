@@ -10,12 +10,17 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.List;
-
 public class ModeAdapter extends RecyclerView.Adapter<ModeAdapter.ModeViewHolder> {
     private List<Mode> modes;
+    private OnItemClickListener listener;
 
-    public ModeAdapter(List<Mode> modes){
+    public interface OnItemClickListener {
+        void onItemClick(Mode mode);
+    }
+
+    public ModeAdapter(List<Mode> modes, OnItemClickListener listener){
         this.modes = modes;
+        this.listener = listener;
     }
 
     @NonNull
@@ -30,6 +35,8 @@ public class ModeAdapter extends RecyclerView.Adapter<ModeAdapter.ModeViewHolder
         Mode mode = modes.get(position);
         holder.tvModeName.setText(mode.getName());
         holder.ivModeImage.setImageResource(mode.getImageResId());
+
+        holder.itemView.setOnClickListener(v -> listener.onItemClick(mode));
     }
 
     @Override

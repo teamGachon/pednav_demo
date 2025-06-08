@@ -1,23 +1,136 @@
-<?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:id="@+id/root_layout">
+    android:layout_height="match_parent">
 
-    <!-- 지도 뷰 -->
+    <!-- Naver Map -->
     <com.naver.maps.map.MapView
         android:id="@+id/map_view"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent" >
+    </com.naver.maps.map.MapView>
 
-    <!-- 투명 뷰: 색상 변경용 -->
+    <!-- 투명 오버레이 -->
     <View
         android:id="@+id/overlay_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@android:color/transparent" />
 
-    <!-- 경고창 레이아웃 -->
+    <!-- 🔍 기존 검색 바-->
+    <LinearLayout
+        android:id="@+id/search_bar"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:layout_marginTop="32dp"
+        android:layout_marginHorizontal="16dp"
+        android:background="@drawable/rounded_white_shadow"
+        android:elevation="6dp"
+        android:gravity="center_vertical"
+        android:layout_gravity="top"
+        android:visibility="invisible">
+
+        <ImageView
+            android:id="@+id/btn_filter"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_filter"
+            android:contentDescription="필터"
+            android:padding="4dp" />
+
+        <EditText
+            android:id="@+id/search_input"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginHorizontal="8dp"
+            android:background="@null"
+            android:hint="장소, 버스, 지하철, 주소 검색"
+            android:textSize="14sp"
+            android:inputType="text"
+            android:singleLine="true"
+            android:padding="8dp"
+            android:fontFamily="@font/cafe24decobox" />
+
+<!--        <ImageView-->
+<!--            android:id="@+id/btn_search"-->
+<!--            android:layout_width="32dp"-->
+<!--            android:layout_height="32dp"-->
+<!--            android:src="@drawable/ic_search"-->
+<!--            android:backgroundTint="#2196F3"-->
+<!--            android:background="@drawable/rounded_icon"-->
+<!--            android:padding="6dp"-->
+<!--            android:contentDescription="검색"-->
+<!--            app:tint="@android:color/white" />-->
+    </LinearLayout>
+
+    <!-- 🧭 길찾기 입력 레이아웃 (초기에는 숨김) -->
+    <LinearLayout
+        android:id="@+id/route_input_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_margin="16dp"
+        android:padding="12dp"
+        android:layout_gravity="top"
+        android:background="@drawable/rounded_white_shadow"
+        android:elevation="6dp"
+        android:visibility="visible"
+        android:gravity="center_vertical">
+
+<!--        &lt;!&ndash; ⬅ btn_swap: 왼쪽 정렬 &ndash;&gt;-->
+<!--        <ImageView-->
+<!--            android:id="@+id/btn_swap"-->
+<!--            android:layout_width="20dp"-->
+<!--            android:layout_height="20dp"-->
+<!--            android:src="@drawable/ic_swap"-->
+<!--            android:layout_marginEnd="8dp"-->
+<!--            android:contentDescription="출발/도착 교환" />-->
+
+        <!-- 📦 중앙: 수직으로 출발지/도착지 입력 -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <EditText
+                android:id="@+id/et_start"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:hint="출발지를 입력해주세요"
+                android:textSize="12sp"
+                android:background="@drawable/edittext_background"
+                android:padding="8dp"/>
+
+            <EditText
+                android:id="@+id/et_destination"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:layout_marginTop="8dp"
+                android:hint="도착지를 입력해주세요"
+                android:textSize="12sp"
+                android:background="@drawable/edittext_background"
+                android:padding="8dp"/>
+        </LinearLayout>
+
+        <!-- ➡ btn_route_search: 오른쪽 정렬 -->
+        <ImageView
+            android:id="@+id/btn_search2"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_search"
+            android:backgroundTint="#2196F3"
+            android:background="@drawable/rounded_icon"
+            android:padding="6dp"
+            android:contentDescription="검색"
+            app:tint="@android:color/white" />
+    </LinearLayout>
+
+    <!-- 차량 경고창 -->
     <LinearLayout
         android:id="@+id/vehicle_warning_layout"
         android:layout_width="300dp"
@@ -29,63 +142,48 @@
         android:visibility="gone"
         android:padding="16dp">
 
-    <ImageView
-        android:id="@+id/warning_icon"
-        android:layout_width="24dp"
-        android:layout_height="24dp"
-        android:src="@drawable/warning_img" />
+        <ImageView
+            android:id="@+id/warning_icon"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/warning_img" />
 
-    <TextView
-        android:id="@+id/warning_message"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Moving Vehicle Detected"
-        android:textSize="18sp"
-        android:textColor="@android:color/white"
-        android:paddingStart="8dp"
-        android:fontFamily="@font/cafe24decobox"/>
+        <TextView
+            android:id="@+id/warning_message"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Moving Vehicle Detected"
+            android:textSize="18sp"
+            android:textColor="@android:color/white"
+            android:paddingStart="8dp"
+            android:fontFamily="@font/cafe24decobox" />
     </LinearLayout>
 
-    <!-- UI 컨트롤 -->
-    <LinearLayout
-        android:id="@+id/control_layout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_gravity="bottom"
-        android:padding="16dp"
-        android:background="#88FFFFFF">
+    <!-- 모댈 테스트 버튼 -->
+    <ImageButton
+        android:id="@+id/btn_to_model_test"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginBottom="40dp"
+        android:layout_marginEnd="20dp"
+        android:background="@drawable/bg_circle_button"
+        android:src="@drawable/ic_target"
+        android:contentDescription="내 위치"
+        android:scaleType="centerInside"
+        android:elevation="6dp"
+        app:tint="#000000" />
 
-    <EditText
-        android:id="@+id/start_point"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Enter Departure Address"
-        android:fontFamily="@font/cafe24decobox"/>
-
-    <EditText
-        android:id="@+id/end_point"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Enter Arrival Address"
-        android:fontFamily="@font/cafe24decobox"/>
-
-    <Button
-        android:id="@+id/find_route_button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Turn Navigation On"
-        android:fontFamily="@font/cafe24decobox"
-        android:textColor="@android:color/black"
-        android:backgroundTint="#B2DFDB"/>
-
-    <Button
-        android:id="@+id/test_vehicle_detection"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Vehicle Warning Button"
-        android:fontFamily="@font/cafe24decobox"
-        android:textColor="@android:color/black"
-        android:backgroundTint="#B2DFDB"/>
-    </LinearLayout>
+    <ImageButton
+        android:id="@+id/btn_test_vehicle_detection"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="100dp"
+        android:background="@drawable/bg_circle_button"
+        android:src="@drawable/ic_car_warning"
+        android:contentDescription="차량 감지 테스트"
+        android:scaleType="centerInside"
+        android:elevation="6dp"
+        app:tint="#4A4A4A" />
 </FrameLayout>

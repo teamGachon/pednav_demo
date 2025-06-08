@@ -4,4 +4,6 @@
     <color name="white">#FFFFFFFF</color>
     <color name="green">#72FE66</color>
     <color name="gray">#FFFFFF</color>
+    <color name="pastel_blue_thumb">#8EC9F8</color>
+    <color name="pastel_blue_track">#CCE6FA</color>
 </resources>

@@ -8,6 +8,7 @@ import android.os.SystemClock;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.util.Log;
+import android.widget.ImageButton;
 import android.widget.Toast;
 import android.os.Bundle;
 import android.view.View;
@@ -61,8 +62,8 @@ public class ModelTestActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_model_test);
 
-        TextView btnStartDetection = findViewById(R.id.btnStartDetection);
-        TextView btnStopDetection = findViewById(R.id.btnStopDetection);
+//        TextView btnStartDetection = findViewById(R.id.btnStartDetection);
+//        TextView btnStopDetection = findViewById(R.id.btnStopDetection);
 
         // UI 컴포넌트 초기화
         resultTextView = findViewById(R.id.resultTextView);
@@ -70,6 +71,13 @@ public class ModelTestActivity extends AppCompatActivity {
         vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         scoreTextView = findViewById(R.id.scoreTextView); // TensorFlow 수치 값 출력용 추가
 
+
+        ImageButton btnToHome = findViewById(R.id.btn_home);
+
+        btnToHome.setOnClickListener(v ->{
+            Intent intent = new Intent(this, MapFragmentActivity.class);
+            startActivity(intent);
+        });
 
         // Foreground Service 시작
         startMyForegroundService();
@@ -83,27 +91,27 @@ public class ModelTestActivity extends AppCompatActivity {
         }
 
         // Start 버튼 이벤트
-        btnStartDetection.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (!isRecording) {
-                    isRecording = true;
-                    startAudioRecording(); // 오디오 녹음 시작
-                    resultTextView.setText("탐지 시작...");
-                }
-            }
-        });
-
-        // Stop 버튼 이벤트
-        btnStopDetection.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (isRecording) {
-                    isRecording = false; // 오디오 녹음 중지
-                    resultTextView.setText("탐지 중지됨");
-                }
-            }
-        });
+//        btnStartDetection.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                if (!isRecording) {
+//                    isRecording = true;
+//                    startAudioRecording(); // 오디오 녹음 시작
+//                    resultTextView.setText("탐지 시작...");
+//                }
+//            }
+//        });
+//
+//        // Stop 버튼 이벤트
+//        btnStopDetection.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                if (isRecording) {
+//                    isRecording = false; // 오디오 녹음 중지
+//                    resultTextView.setText("탐지 중지됨");
+//                }
+//            }
+//        });
 
     }
 

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="route_input_layout" type="id" />
+    <item name="btn_swap" type="id" />
+    <item name="et_start" type="id" />
+    <item name="et_destination" type="id" />
+    <item name="btn_search2" type="id" />
+</resources>
