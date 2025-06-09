@@ -20,7 +20,7 @@ public class SplashActivity extends AppCompatActivity {
         setContentView(R.layout.activity_splash);
 
 
-        WebSocketManager.connect("ws://3.39.233.144:3000/data");
+        WebSocketManager.connect("ws://3.34.129.82:3000/data");
         Log.d("WebSocket", "🎯 SplashActivity에서 connect() 호출됨");
 
 

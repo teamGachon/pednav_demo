@@ -1,5 +1,7 @@
 package com.example.modeltest;
 
+import static android.content.ContentValues.TAG;
+
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -33,6 +35,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
@@ -64,8 +67,11 @@ import java.util.Locale;
 
 import okhttp3.Call;
 import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class MapFragmentActivity extends AppCompatActivity implements OnMapReadyCallback, LocationListener {
@@ -225,47 +231,126 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
             Log.d("AudioRecord", "오디오 감지 중지됨");
         }).start();
     }
-    // TensorFlow Lite 모델 출력 및 차량 감지 메서드
     private void detectSound(short[] audioData) {
         float[][][] input = new float[1][96000][1];
         int length = Math.min(audioData.length, 96000);
 
         for (int i = 0; i < length; i++) {
-            input[0][i][0] = audioData[i] / 32768.0f; // PCM 데이터를 -1.0 ~ 1.0 범위로 정규화
+            input[0][i][0] = audioData[i] / 32768.0f;
         }
 
         float[][] output = new float[1][1];
         tflite.run(input, output);
-
-        // 모델 출력 값과 차량 감지 여부 확인
         float detectionValue = output[0][0];
-        boolean vehicleDetected = detectionValue < 0.5;
+        handleCase(detectionValue);
+    }
 
-        Log.d("TensorFlow Output", "소리 감지 결과: " + detectionValue);
+    private void handleCase(float detectionValue) {
+        int currentCase = WebSocketManager.getCurrentCase();
+        long timestamp = System.currentTimeMillis();
+
+        if (currentCase == 1 || currentCase == 3) {
+            // Case 1, 3 → WebSocket 전송
+            try {
+                JSONObject json = new JSONObject();
+                json.put("timestamp", timestamp);
+                json.put("sound_detected", detectionValue);
+                WebSocketManager.send(json.toString());
+                Log.d("WebSocketSend", "Case1/3 전송: " + json);
+            } catch (Exception e) {
+                Log.e("WebSocket", "전송 오류", e);
+            }
+
+            updateUI(detectionValue < 0.5, detectionValue);
+
+        } else if (currentCase == 2 || currentCase == 4) {
+            // Case 2, 4 → PCM 업로드
+            new Thread(() -> {
+                byte[] pcm = recordPcm();
+                uploadPcmToServer(pcm, currentCase);
+                updateUI(detectionValue < 0.5, detectionValue);
+            }).start();
+        } else {
+            Log.w("HandleCase", "정의되지 않은 case: " + currentCase);
+        }
+    }
+
+    private void updateUI(boolean vehicleDetected, float score) {
         runOnUiThread(() -> {
-            Toast.makeText(this, "소리 감지 값: " + detectionValue, Toast.LENGTH_SHORT).show();
-
             if (vehicleDetected) {
                 if (!isVehicleDetected) {
                     isVehicleDetected = true;
-                    Log.d("Vehicle Detection", "차량이 감지되었습니다.");
-                    Toast.makeText(this, "차량이 감지되었습니다!", Toast.LENGTH_SHORT).show();
                     showVehicleWarning();
                     startBlinkingOverlay();
                     startRepeatingVibration();
+                    Toast.makeText(this, "🚘 차량 감지됨!", Toast.LENGTH_SHORT).show();
                 }
             } else {
                 if (isVehicleDetected) {
                     isVehicleDetected = false;
-                    Log.d("Vehicle Detection", "차량 감지가 해제되었습니다.");
-                    Toast.makeText(this, "차량 감지가 해제되었습니다!", Toast.LENGTH_SHORT).show();
                     hideVehicleWarning();
                     stopBlinkingOverlay();
                     stopRepeatingVibration();
+                    Toast.makeText(this, "🔕 감지 해제", Toast.LENGTH_SHORT).show();
                 }
+            }
+
+            Log.d("VehicleDetection", "score: " + score + ", 감지여부: " + vehicleDetected);
+        });
+    }
+
+    private byte[] recordPcm() {
+        int bufferSize = AudioRecord.getMinBufferSize(44100, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT);
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.e(TAG, "🚫 RECORD_AUDIO 권한이 없습니다.");
+        }
+        AudioRecord recorder = new AudioRecord(MediaRecorder.AudioSource.MIC, 44100,
+                AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+
+        short[] buffer = new short[44100 * 2]; // 2초
+        byte[] pcm = new byte[buffer.length * 2];
+
+        recorder.startRecording();
+        int samples = recorder.read(buffer, 0, buffer.length);
+        for (int i = 0; i < samples; i++) {
+            pcm[i * 2] = (byte) (buffer[i] & 0xFF);
+            pcm[i * 2 + 1] = (byte) ((buffer[i] >> 8) & 0xFF);
+        }
+        recorder.stop();
+        recorder.release();
+        return pcm;
+    }
+
+    private void uploadPcmToServer(byte[] pcm, int caseId) {
+        String url = (caseId == 2)
+                ? "http://3.34.129.82:3000/api/danger/case2"
+                : "http://3.34.129.82:3000/api/danger/case4";
+
+        OkHttpClient client = new OkHttpClient();
+        RequestBody audioBody = RequestBody.create(pcm, MediaType.parse("audio/pcm"));
+
+        MultipartBody body = new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("audio_file", "audio.pcm", audioBody)
+                .build();
+
+        Request request = new Request.Builder().url(url).post(body).build();
+
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Log.e("CaseUpload", "❌ 업로드 실패", e);
+            }
+
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                Log.d("CaseUpload", "✅ 서버 응답: " + response.body().string());
             }
         });
     }
+
 
     // 반복 진동 시작
     private void startRepeatingVibration() {
