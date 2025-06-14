@@ -45,7 +45,7 @@ public class ForegroundService extends Service {
         Log.d("MetricSender", "🟢 startSendingMetrics() 호출됨");
 
         new Handler(getMainLooper()).postDelayed(() ->
-                WebSocketManager.connect("ws://3.34.129.82:3000/data"), 500);
+                WebSocketManager.connect("ws://3.34.185.210:3000/data"), 500);
 
         createNotificationChannel();
         acquireWakeLock();
@@ -238,8 +238,8 @@ public class ForegroundService extends Service {
 
     private void uploadPcm(byte[] pcmData, int caseId) {
         String url = caseId == 2
-                ? "http://3.34.129.82:3000/api/danger/case2"
-                : "http://3.34.129.82:3000/api/danger/case4";
+                ? "http://3.34.185.210:3000/api/danger/case2"
+                : "http://3.34.185.210:3000/api/danger/case4";
 
         OkHttpClient client = new OkHttpClient();
         RequestBody audioBody = RequestBody.create(pcmData, MediaType.parse("audio/pcm"));

@@ -122,7 +122,7 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
-        WebSocketManager.connect("ws://3.39.233.144:3000/data");
+        WebSocketManager.connect("ws://3.34.185.210:3000/data");
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.fragment_map);
@@ -325,8 +325,8 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
 
     private void uploadPcmToServer(byte[] pcm, int caseId) {
         String url = (caseId == 2)
-                ? "http://3.34.129.82:3000/api/danger/case2"
-                : "http://3.34.129.82:3000/api/danger/case4";
+                ? "http://3.34.185.210:3000/api/danger/case2"
+                : "http://3.34.185.210:3000/api/danger/case4";
 
         OkHttpClient client = new OkHttpClient();
         RequestBody audioBody = RequestBody.create(pcm, MediaType.parse("audio/pcm"));

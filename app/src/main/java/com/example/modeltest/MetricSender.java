@@ -84,7 +84,7 @@ public class MetricSender {
     private double measureLatency() {
         try (Socket socket = new Socket()) {
             long start = System.currentTimeMillis();
-            socket.connect(new InetSocketAddress("3.34.129.82", 3000), 1000);  // WebSocket 주소로 ping
+            socket.connect(new InetSocketAddress("3.34.185.210", 3000), 1000);  // WebSocket 주소로 ping
             long end = System.currentTimeMillis();
             return (end - start);
         } catch (Exception e) {
