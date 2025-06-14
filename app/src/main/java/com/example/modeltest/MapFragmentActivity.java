@@ -138,10 +138,11 @@ public class MapFragmentActivity extends AppCompatActivity implements OnMapReady
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 200);
         } else {
             initTFLite();
+            initModel();
             startVehicleDetection();
         }
 
-        initModel();
+//        initModel();
 
     }
 
